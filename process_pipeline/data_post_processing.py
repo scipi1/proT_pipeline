@@ -10,17 +10,22 @@ def data_post_processing(df,time_label,id_label,sort_label,features,max_seq_len)
     
     features.extend(time_cmp)
     
-    sequencer = Sequencer(df=df_tok, features=features, id_label = id_label, sort_label=sort_label, max_seq_len=max_seq_len)
+    sequencer = Sequencer(
+        df=df_tok, 
+        features=features, 
+        id_label = id_label, 
+        sort_label=sort_label, 
+        max_seq_len=max_seq_len)
     
     seq_list = []
-    if __name__ == '__main__':
-        try:
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                for result in executor.map(sequencer.get_seq, sequencer.get_ids()):
-                    seq_list.append(result)
     
-        except Exception as e:
-            print(f"Error occurred {e}")
+    try:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            for result in executor.map(sequencer.get_seq, sequencer.get_ids()):
+                seq_list.append(result)
+
+    except Exception as e:
+        print(f"Error occurred {e}")
     
     arr_np = np.array(seq_list)
     
