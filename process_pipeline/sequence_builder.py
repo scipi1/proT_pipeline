@@ -36,12 +36,12 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
         
         if s in df_sel.index:
         
-            for v in tqdm(d[s].keys(),leave=False):
+            for v in d[s].keys():
                 df_sel = df_query.set_index(["SAP","SAP_Version"]).loc[int(s)]
                 
                 if v in df_sel.index:
                 
-                    for wa in tqdm(d[s][v].keys(),leave=False):
+                    for wa in d[s][v].keys():
                         #prog_bar.update()
                         
                         df_sel = df_query.set_index(["SAP","SAP_Version","WA"]).loc[int(s)].loc[v]
@@ -55,9 +55,9 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
                             
                             # STEP 1 COMPUTE PROCESS CHAIN OF THE GIVEN BATCH
                             step_counter = 0
-                            for step in tqdm(df_sel["PaPosNumber"],leave=False):
+                            for step in df_sel["PaPosNumber"]:
                                 
-                                df_temp, mis = get_data_step(wa,step,processes,filename_sel)                           # get data for the current WA, Version and PaPosNumber
+                                df_temp, mis = get_data_step(wa,step,processes,filename_sel)       # get data for the current WA, Version and PaPosNumber
                                 
                                 if mis is not None:
                                     process_mis.append(mis)
@@ -71,7 +71,7 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
                                     
                                     step_counter += 1                                              # increment for next step
     
-                                    if len(df_wa) == 0:                                              # first loop --> initiate
+                                    if len(df_wa) == 0:                                            # first loop --> initiate
                                         df_wa = df_temp.copy()
                                         verboseprint("Process Dataframe initialized!")
                                         
@@ -87,7 +87,7 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
                                     df_wa["id"] = id                                               # add ID column with current coupon ID
                                     df_wa["Position"] = [i for i in range(len(df_wa))]
                                     
-                                    if len(df_pc) == 0:                                              # first loop --> initiate
+                                    if len(df_pc) == 0:                                            # first loop --> initiate
                                         df_pc = df_wa.copy()
                                         
                                     else:                                                          # from second loop on...append
