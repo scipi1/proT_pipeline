@@ -6,8 +6,15 @@ from core.modules import get_data_step
 from utils import nested_dict_from_pandas
 
 
-def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, saving_path:str, filename_sel:str
-                    ,save_file:bool=False, verbose:bool=False):
+def sequence_builder(
+    df_query:pd.DataFrame, 
+    df_keys:pd.DataFrame, 
+    keys_branches:list, 
+    processes:list, 
+    saving_path:str, 
+    filename_sel:str,
+    save_file:bool=False, 
+    verbose:bool=False):
     
     """Build a sequential dataset from a process chain
     
@@ -42,7 +49,6 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
                 if v in df_sel.index:
                 
                     for wa in d[s][v].keys():
-                        #prog_bar.update()
                         
                         df_sel = df_query.set_index(["SAP","SAP_Version","WA"]).loc[int(s)].loc[v]
                         
@@ -114,6 +120,6 @@ def sequence_builder(df_query, df_keys, keys_branches:list, processes:list, savi
         # save report of missing data
         df_book_mis.to_csv(join(saving_path, "booking_missing.csv"), sep=",")
         df_pro_mis.to_csv(join(saving_path,"process_missing.csv"), sep=",")
-        df_pc.to_csv(saving_path + "x_prochain.csv", sep=",")
+        df_pc.to_csv(join(saving_path,"x_prochain.csv"), sep=",")
         
     return df_pc, df_book_mis,df_pro_mis

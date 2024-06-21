@@ -49,8 +49,14 @@ def main(args):
         df_book = get_booking(INPUT_DIR)
         
         # get process sequence
-        df_pc, df_book_mis,_ = sequence_builder(df_query=df_book.copy(), df_keys=df_ist.copy(), keys_branches=["SapNummer","Version","WA","id"],
-                            processes=processes, saving_path=INTERMEDIATE_DIR, filename_sel=filename_sel, save_file=True)
+        df_pc, df_book_mis,_ = sequence_builder(
+            df_query=df_book.copy(), 
+            df_keys=df_ist.copy(), 
+            keys_branches=["SapNummer","Version","WA","id"],
+            processes=processes, 
+            saving_path=INTERMEDIATE_DIR, 
+            filename_sel=filename_sel, 
+            save_file=True)
         
         # check dimensions and trim
         df_ist_tr = data_trimmer(df_x=df_pc.copy(), df_y=df_ist.copy(), df_miss=df_book_mis.copy(), 
@@ -101,40 +107,39 @@ if __name__ == '__main__':
         description='The program builds sequential datasets from processes and booking table',
         epilog='Text at the bottom of help')
     
-    parser.add_argument("-dr","--devrun",
-                        type=bool,
-                        choices=[True,False],
-                        default=False,
+    parser.add_argument("--devrun",
+                        action="store_true",
                         help='Run a quick test for debugging purpose')
     
-    parser.add_argument("-mkl","--makelookup", 
+    parser.add_argument("--makelookup", 
                         type=bool,
                         choices=[True,False],
                         default=False,
                         help="generate new lookup table and exit")
     
-    parser.add_argument("-rp","--runprocess", 
+    parser.add_argument("--runprocess", 
                         type=bool,
                         choices=[True,False],
                         default=True,
                         help="build the process chains")
     
-    parser.add_argument("-rf","--readfile", 
+    parser.add_argument("--readfile", 
                         action="store_true",
+                        default=False,
                         help="reads existing files")
     
-    parser.add_argument("-c","--cluster", 
+    parser.add_argument("--cluster", 
                         action="store_true",
                         help="running on cluster")
     
-    parser.add_argument("-slx","--seqlenx", 
-                        action="store_const",
-                        const=1560,
+    parser.add_argument("--seqlenx", 
+                        action="store",
+                        default=1600,
                         help="maximum x sequence length")
     
-    parser.add_argument("-sly","--seqleny", 
-                        action="store_const",
-                        const=250,
+    parser.add_argument("--seqleny", 
+                        action="store",
+                        default=250,
                         help="maximum y sequence length")
     
     args = parser.parse_args()

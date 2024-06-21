@@ -42,15 +42,19 @@ def get_df_lookup(obj):
     return df_pro
 
 
-
-
-def get_data_step(wa,step,processes,filename_sel,*args, **kwargs):
+def get_data_step(
+    wa:str,
+    step:int,
+    processes:list,
+    filename_sel:str
+    ):
     """Looks for the current step within the processes and assembles a 
 
     Args:
         WA (str): batch number
         step (_type_): _description_
         processes (_type_): _description_
+        filename_sel (str,path): location of the selective lookup table 
 
     Raises:
         ValueError: the lookup table doesn't contain any selected parameter
@@ -96,9 +100,9 @@ def get_data_step(wa,step,processes,filename_sel,*args, **kwargs):
                 
                 
                 if len(time) == 1:
-                     time = list(np.array(time))*len(values)
+                    time = list(np.array(time))*len(values)
                 else:
-                     time = list(np.array(time.iloc[0]))*len(values)
+                    time = list(np.array(time.iloc[0]))*len(values)
                 
                 df_temp["Value"] = values
                 df_temp["Time"] = time
