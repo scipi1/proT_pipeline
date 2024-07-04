@@ -6,6 +6,7 @@ from config import get_folders
 from data_loader import get_processes,get_booking,generate_lookup
 from sequence_builder import sequence_builder
 from data_trimmer import data_trimmer
+from level_sequences import level_sequences
 from data_post_processing import data_post_processing
 from argparse import ArgumentParser
 
@@ -63,15 +64,18 @@ def main(args):
                                 save_path=INTERMEDIATE_DIR, save_file=True)   
         
     # check that ids are aligned
-    df_pc = df_pc.sort_values("id")
-    df_ist_tr = df_ist_tr.sort_values("id")
+    df_pc_sort = df_pc.sort_values("id")
+    df_ist_tr_sort = df_ist_tr.sort_values("id")
     
-    if all(df_pc["id"].drop_duplicates().to_numpy() == df_ist_tr["id"].drop_duplicates().to_numpy()):
+    if all(df_pc_sort["id"].drop_duplicates().to_numpy() == df_ist_tr_sort["id"].drop_duplicates().to_numpy()):
         print("All IDs are aligned! Proceed conversion to numpy arrays")
-    
+        
+        # get absolute positions and missing values
+        df_lev = level_sequences(df_pc)
+        
         # post processing and conversion to numpy
         X_np = data_post_processing(
-            df=df_pc, 
+            df=df_lev, 
             time_label="Time",
             id_label="id",
             sort_label="PaPos",

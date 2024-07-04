@@ -1,11 +1,12 @@
 import numpy as np
 import concurrent.futures
+
 from core.modules import explode_time_components
 from core.sequencer import Sequencer
 
 def data_post_processing(df,time_label,id_label,sort_label,features,max_seq_len,cluster):
     
-    
+    # create time features
     df_tok,time_cmp = explode_time_components(df,time_label)
     
     features.extend(time_cmp)
