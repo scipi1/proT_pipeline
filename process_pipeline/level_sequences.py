@@ -1,28 +1,17 @@
 import pandas as pd
 import numpy as np
-from os.path import join,dirname
+from os.path import join,dirname,abspath
 from typing import List
 
 import sys
-ROOT_DIR = dirname(dirname(__file__))
+ROOT_DIR = dirname(dirname(abspath(__file__)))
 sys.path.append(ROOT_DIR)
 from process_pipeline.utils import nested_dict_from_pandas
-from core.modules import Process
-from labels import *
+from process_pipeline.core.modules import Process
+from process_pipeline.labels import *
 
 
-def get_template(
-    df: pd.DataFrame,
-    processes = List[Process],
-    # input_design_label: str = "SAP",
-    # input_version_label: str = "Version",
-    # input_variable_label: str = "Variable",
-    # input_process_label: str = "Process",
-    # input_batch_label: str = "WA",
-    # input_step_label: str = "PaPos",
-    # input_id_label: str = "id",
-    # input_abs_pos_label: str = "AbsPos",
-    ):
+def get_template(df: pd.DataFrame, processes = List[Process]):
     
     # create a nested dictionary from Y (IST) queries
     multi_idx = [input_design_label,input_version_label,input_batch_label,input_id_label,input_step_label]
@@ -66,39 +55,16 @@ def get_template(
     return outer_dict
 
 
-def level_sequences(
-    df: pd.DataFrame,
-    processes: List[Process],
-    # input_design_label: str = "SAP",
-    # input_version_label: str = "Version",
-    # input_variable_label: str = "Variable",
-    # input_process_label: str = "Process",
-    # input_batch_label: str = "WA",
-    # input_step_label: str = "PaPos",
-    # input_id_label: str = "id",
-    # input_abs_pos_label: str = "AbsPos",
-    # input_given_label: str = "Given",
-    # input_value_label: str = "Value",
-    ):
+def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_templates: str):
     
     # create a nested dictionary from Y (IST) queries
     multi_idx = [input_design_label,input_version_label,input_batch_label,input_id_label]
     d = nested_dict_from_pandas(df.set_index(multi_idx))
 
     
-    templates = get_template(
-        df=df,
-        processes=processes,
-        # input_design_label = input_design_label,
-        # input_version_label = input_version_label,
-        # input_variable_label = input_variable_label,
-        # input_process_label = input_process_label,
-        # input_batch_label = input_batch_label,
-        # input_step_label = input_step_label,
-        # input_id_label = input_id_label,
-        # input_abs_pos_label = input_abs_pos_label
-        )
-    print("Template assembled")
+    templates = get_template(df=df,processes=processes)
+    save_templates(templates_dict=templates,save_dir=save_dir_templates)
+    print("Template assembled and saved")
     
     # get absolute position in the templates
     df_lev = None
@@ -140,4 +106,29 @@ def level_sequences(
 
     df_lev[input_given_label] = df_lev[input_value_label].notna().astype(int)
     
-    return df_lev,max_seq_len
+    return df_lev,max_seq_len,templates
+
+
+def save_templates(templates_dict: dict, save_dir: str)->None:
+    df_templates = None
+    for design in templates_dict.keys():
+        for version in templates_dict[design].keys():
+            sel_template = templates_dict[design][version]
+
+            df_temp = pd.DataFrame.from_dict(
+                {
+                    (i,j): sel_template[i][j] 
+                    for i in sel_template.keys()
+                    for j in sel_template[i].keys()
+                    },
+                orient="index")
+
+            df_temp = df_temp.reset_index().rename(columns={'level_0': templates_step_label, 'level_1': templates_variable_label})
+            df_temp[templates_design_label] = design
+            df_temp[templates_version_label] = version
+
+            if df_templates is None:
+                df_templates = df_temp
+            else:
+                df_templates = pd.concat([df_templates,df_temp],axis=0)
+    df_templates.to_csv(join(save_dir,templates_filename)) 

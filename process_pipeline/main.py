@@ -41,7 +41,7 @@ def main(args):
     
     #_____________________________ FOR DEBUGGING ______________________________________
     if args.devrun:
-        test_id = df_ist[target_id_label].unique()[:100]
+        test_id = df_ist[target_id_label].unique()[:500]
         df_ist = df_ist.set_index(target_id_label).loc[test_id].reset_index()
         
     if args.target_design is not None:
@@ -87,7 +87,8 @@ def main(args):
         print("All IDs are aligned! Proceed conversion to numpy arrays")
         
         # get absolute positions and missing values
-        df_lev,max_seq_len_x = level_sequences(df=df_pc,processes=processes)
+        df_lev,max_seq_len_x,_ = level_sequences(df=df_pc,processes=processes,save_dir_templates=OUTPUT_DIR)
+        
         df_lev.to_csv(join(INTERMEDIATE_DIR,input_leveled_filename))
         print(f"Leveling done! Maximum sequence length = {max_seq_len_x}")
         

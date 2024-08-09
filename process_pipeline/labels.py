@@ -50,5 +50,12 @@ booking_version_label = "SAP_Version"
 booking_batch_label = "WA"
 booking_step_label = "PaPosNumber"
 
+# TEMPLATES
+templates_filename = "templates.csv"
+templates_design_label = input_design_label
+templates_version_label = input_version_label
+templates_step_label = input_step_label
+templates_variable_label = input_variable_label
+
 # GENERAL
 standard_sep = ","

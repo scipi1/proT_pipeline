@@ -5,13 +5,13 @@ from typing import List
 
 
 from os import getcwd
-from os.path import dirname, join
+from os.path import dirname, join,abspath
 import sys
-ROOT_DIR = dirname(getcwd())
+ROOT_DIR = dirname(dirname(abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
-from core.modules import Process, get_df_lookup
-from utils import fix_format_columns
+from process_pipeline.core.modules import Process, get_df_lookup
+from process_pipeline.utils import fix_format_columns
 import pandas as pd
 
 
