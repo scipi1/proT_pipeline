@@ -15,14 +15,20 @@ filename_sel  = join(INTERMEDIATE_DIR, "lookup_selected.xlsx")
 
 #load processes
 _, processes = get_processes(INPUT_DIR,filename_sel)
-
+print(1)
 #load processes
 df_pc = pd.read_csv(join(INTERMEDIATE_DIR,"x_prochain.csv"), sep=",")
+print(2)
+design = 453828
+version = "B"
+
+df_pc = df_pc.set_index([input_design_label,input_version_label]).loc[design].loc[version].reset_index()
+df_pc[input_design_label] = design
 
 templates_dict = get_template(df=df_pc,processes=processes)
+print(3)
 
-
-sel_template = templates_dict[453828]["B"]
+sel_template = templates_dict[design][version]
 
 df_templates = None
     
@@ -33,4 +39,4 @@ df_template = pd.DataFrame.from_dict({(i,j): sel_template[i][j]
                            for j in sel_template[i].keys()},orient="index")
 
 
-df_lev,max_len,templates = level_sequences(df=df_pc,processes=processes,save_dir_templates=TEST_DIR)
+df_lev,max_len,templates = level_sequences(df=df_pc,processes=processes,save_dir=TEST_DIR)

@@ -40,7 +40,7 @@ def get_template(df: pd.DataFrame, processes = List[Process]):
                             inner_dict[step] = {input_process_label:process,input_variable_label:var_list,input_abs_pos_label:0}
             #----------------------------------------------------------------------------------------------------------------------
             
-            for i, key in enumerate(inner_dict.keys()):
+            for i, key in enumerate(sorted(inner_dict.keys())):
                 var_dict = dict()
                 for var in inner_dict[key][input_variable_label]:
                     var_dict[var] = {
@@ -55,7 +55,7 @@ def get_template(df: pd.DataFrame, processes = List[Process]):
     return outer_dict
 
 
-def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_templates: str):
+def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir: str):
     
     # create a nested dictionary from Y (IST) queries
     multi_idx = [input_design_label,input_version_label,input_batch_label,input_id_label]
@@ -63,7 +63,8 @@ def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_template
 
     
     templates = get_template(df=df,processes=processes)
-    save_templates(templates_dict=templates,save_dir=save_dir_templates)
+    df_templates = get_df_templates(templates_dict=templates)
+    df_templates = df_templates.set_index([templates_design_label,templates_version_label])
     print("Template assembled and saved")
     
     # get absolute position in the templates
@@ -73,14 +74,12 @@ def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_template
     for design in d.keys():
 
         for version in d[design].keys():
-            sel_template = templates[design][version]
-
-            df_template = pd.DataFrame.from_dict(
-                {(i,j): sel_template[i][j] 
-                for i in sel_template.keys() 
-                for j in sel_template[i].keys()},orient="index")
             
-            if len(df_template)>max_seq_len:
+            df_template = df_templates.loc[design].loc[version].reset_index()
+            df_template = df_template.set_index([templates_step_label,input_process_label,templates_variable_label]).sort_index()
+            
+            len_template = len(df_template)
+            if len_template>max_seq_len:
                 max_seq_len = len(df_template)
                 
             for batch in d[design][version].keys():
@@ -88,10 +87,12 @@ def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_template
                 for id in d[design][version][batch]:
                     _df = df.set_index([input_design_label,input_version_label,input_batch_label,input_id_label]).loc[design,version,batch,id].reset_index()
                     _df = _df.drop_duplicates(subset=[input_step_label,input_variable_label])
-                    _df = _df.set_index([input_step_label,input_variable_label])
+                    _df = _df.set_index([input_step_label,input_process_label,input_variable_label]).sort_index()
+                    assert len(_df) <= len_template, "Error in the template generation, it's not the longest"
                     df_lev_temp = pd.concat([df_template,_df],axis=1)
+                    assert len(df_lev_temp) <= len_template, f"Error in the concatenation for {design}{version}{batch}{id}"
                     df_lev_temp = df_lev_temp.reset_index().rename(columns={'level_0':input_step_label, "level_1":input_variable_label})
-                    
+                    assert len(df_lev_temp) <= len_template, "Error in the reset index"
                     df_lev_temp[input_design_label] = design
                     df_lev_temp[input_version_label] = version
                     df_lev_temp[input_batch_label] = batch
@@ -100,16 +101,16 @@ def level_sequences(df: pd.DataFrame, processes: List[Process],save_dir_template
                     if df_lev is None:
                         df_lev = df_lev_temp
                     else:
-                        df_lev = pd.concat([df_lev,df_lev_temp],ignore_index=True)
+                        df_lev = pd.concat([df_lev,df_lev_temp],axis=0,ignore_index=True)
                 
                         
 
     df_lev[input_given_label] = df_lev[input_value_label].notna().astype(int)
     
-    return df_lev,max_seq_len,templates
+    return df_lev,max_seq_len,df_templates
 
 
-def save_templates(templates_dict: dict, save_dir: str)->None:
+def get_df_templates(templates_dict: dict):
     df_templates = None
     for design in templates_dict.keys():
         for version in templates_dict[design].keys():
@@ -131,4 +132,4 @@ def save_templates(templates_dict: dict, save_dir: str)->None:
                 df_templates = df_temp
             else:
                 df_templates = pd.concat([df_templates,df_temp],axis=0)
-    df_templates.to_csv(join(save_dir,templates_filename)) 
+    return df_templates

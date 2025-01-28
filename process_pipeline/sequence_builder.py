@@ -12,6 +12,7 @@ def sequence_builder(
     df_query:pd.DataFrame, 
     query_branches:tuple, 
     processes:list,
+    selected_steps:list,
     filepath_selected:str, 
     verbose:bool=False):
     
@@ -61,25 +62,27 @@ def sequence_builder(
                             # STEP 1 COMPUTE PROCESS CHAIN OF THE GIVEN BATCH
                             for step in df_sel[booking_step_label]:
                                 
-                                df_temp, mis = get_data_step(batch,step,processes,filepath_selected)       # get data for the current WA, Version and PaPosNumber
-                                df_temp = df_temp.drop_duplicates(subset=input_variable_label)               # for each step, variables repeat once
+                                if step in selected_steps:
                                 
-                                if mis is not None:
-                                    process_mis.append(mis)
-                                
-                                if df_temp is not None:
-                                    df_temp[input_batch_label] = batch                                             # append current design
-                                    df_temp[input_step_label] = step                                        # append current step
-                                    df_temp[input_version_label] = version                                         # append current version
-                                    df_temp[input_design_label] = design                                             # append current design                                    
-    
-                                    if len(df_batch) == 0:                                            # first loop --> initiate
-                                        df_batch = df_temp.copy()
-                                        verboseprint("Process Dataframe initialized!")
-                                        
-                                    else:
-                                        df_batch = pd.concat([df_batch,df_temp])                        # from second loop on...append
-                                        verboseprint(f"Process Dataframe updated...{batch},{step}")
+                                    df_temp, mis = get_data_step(batch,step,processes,filepath_selected)       # get data for the current WA, Version and PaPosNumber
+                                    df_temp = df_temp.drop_duplicates(subset=input_variable_label)               # for each step, variables repeat once
+                                    
+                                    if mis is not None:
+                                        process_mis.append(mis)
+                                    
+                                    if df_temp is not None:
+                                        df_temp[input_batch_label] = batch                                             # append current design
+                                        df_temp[input_step_label] = step                                        # append current step
+                                        df_temp[input_version_label] = version                                         # append current version
+                                        df_temp[input_design_label] = design                                             # append current design                                    
+        
+                                        if len(df_batch) == 0:                                            # first loop --> initiate
+                                            df_batch = df_temp.copy()
+                                            verboseprint("Process Dataframe initialized!")
+                                            
+                                        else:
+                                            df_batch = pd.concat([df_batch,df_temp])                        # from second loop on...append
+                                            verboseprint(f"Process Dataframe updated...{batch},{step}")
                                     
                             # STEP 2 DUPLICATE AND APPEND FOR ALL COUPONS IN THE SET
                             if len(df_batch)> 0:

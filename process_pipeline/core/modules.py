@@ -120,16 +120,30 @@ def get_data_step(
 
 
 def explode_time_components(df,time_label):
-    df = df.copy()
-    components_labels = ["Year","Month","Day","Hour","Minute"]
+    # df = df.copy()
+    time_components_labels = ["Year","Month","Day","Hour","Minute"]
     
-    df[components_labels[0]] = pd.DatetimeIndex(df[time_label]).year
-    df[components_labels[1]] = pd.DatetimeIndex(df[time_label]).month
-    df[components_labels[2]] = pd.DatetimeIndex(df[time_label]).day
-    df[components_labels[3]] = pd.DatetimeIndex(df[time_label]).hour
-    df[components_labels[4]] = pd.DatetimeIndex(df[time_label]).minute
+    # df[time_components_labels[0]] = pd.DatetimeIndex(df[time_label]).year
+    # df[time_components_labels[1]] = pd.DatetimeIndex(df[time_label]).month
+    # df[time_components_labels[2]] = pd.DatetimeIndex(df[time_label]).day
+    # df[time_components_labels[3]] = pd.DatetimeIndex(df[time_label]).hour
+    # df[time_components_labels[4]] = pd.DatetimeIndex(df[time_label]).minute
+    df[time_label] = pd.to_datetime(df[time_label], errors="coerce")
+    date_col = df[time_label].dt
     
-    return df, components_labels
+    # Extract components in a single pass
+    df[time_components_labels[0]] = date_col.year
+    df[time_components_labels[1]] = date_col.month
+    df[time_components_labels[2]] = date_col.day
+    df[time_components_labels[3]] = date_col.hour
+    df[time_components_labels[4]] = date_col.minute
+    
+    return df, time_components_labels
+
+
+
+
+
 
 
 class Process():
@@ -163,6 +177,8 @@ class Process():
     def get_df(self,input_data_path):
         self.df = pd.read_csv(os.path.join(input_data_path,self.filename), sep=self.sep,header=self.header,low_memory=False)
         self.flag = 1
+        
+    
         
     def normalize_df(self,filename_sel):
         if self.flag == 0:

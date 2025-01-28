@@ -1,14 +1,18 @@
 
-from os.path import join
+from os.path import join, exists
+from os import makedirs
 
 # DIRECTORIES
 
-def get_dirs(root:str):
+def get_dirs(root: str, dataset_id: str):
     DATA_DIR = join(root,"data")
+    BASE_DIR = join(DATA_DIR,"processed",dataset_id)
+    # assert exists(BASE_DIR), AssertionError(f"BASE dir {dataset_id} doesn't exist")
     INPUT_DIR = join(DATA_DIR,"input")
-    OUTPUT_DIR = join(DATA_DIR,"output")
-    INTERMEDIATE_DIR = join(DATA_DIR,"intermediate")
-    return INPUT_DIR,OUTPUT_DIR,INTERMEDIATE_DIR
+    OUTPUT_DIR = join(BASE_DIR,"output")
+    INTERMEDIATE_DIR = join(DATA_DIR,"intermediate") # to remove in the future
+    CONTROL_DIR = join(BASE_DIR,"control")
+    return INPUT_DIR,OUTPUT_DIR,INTERMEDIATE_DIR,CONTROL_DIR
 
 # TARGET
 target_filename = "y_ist.csv"
@@ -38,8 +42,9 @@ input_value_label = "Value"
 input_time_label = "Time"
 
 
-# INTERMEDIATE FILES
+# CONTROL FILES
 selected_filename = "lookup_selected.xlsx"
+selected_process_filename = "steps_selected.xlsx"
 lookup_filename = "lookup.xlsx"
 input_raw_filename = "x_prochain.csv"
 input_leveled_filename = "x_prochain_lev.csv"
@@ -59,3 +64,27 @@ templates_variable_label = input_variable_label
 
 # GENERAL
 standard_sep = ","
+
+# TRANSVERSAL LABELS
+trans_parameter_label = "parameter"
+trans_value_label = "value"
+trans_value_norm_label = "value_norm"
+trans_position_label = "position"
+trans_date_label = "date"
+trans_batch_label = "batch"
+trans_process_label = "process"
+trans_variable_label = "variable"
+trans_id_label = "id"
+
+# TRANSVERSAL FILES
+trans_missing_batches = "missing_batches.json"
+trans_df_process_raw = "df_process_raw.csv"
+trans_df_input_short = "df_input_short.parquet"
+trans_df_input = "df_input.parquet"
+time_components_labels = ["Year","Month","Day","Hour","Minute"]
+
+# OUTPUT DATASET FILES
+input_ds_label = "X.npy"
+trg_ds_label = "Y.npy"
+
+

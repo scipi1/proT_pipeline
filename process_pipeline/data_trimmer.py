@@ -37,7 +37,7 @@ def data_trimmer(df_x, df_y, df_miss, save_path:str ,save_file:bool=False):
     # ID not seen from the method
     unseen_id = []
     for i in actual_missing_id:
-        if i not in seen_missing_id:
+        if i not in seen_missing_id: #and i not in cut_id:
             unseen_id.append(i)
     
     if len(unseen_id) == 0:
