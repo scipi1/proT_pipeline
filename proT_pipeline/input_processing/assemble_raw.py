@@ -9,14 +9,66 @@ import json
 import re
 from os.path import join, exists
 from os import makedirs
-from typing import Tuple, List, Literal
+from typing import Tuple, List, Literal, Dict
 
+
+
+def validate_class_columns(df_lookup: pd.DataFrame, process_label: str) -> Dict[str, int]:
+    """
+    Validate that each selected parameter has exactly one class (Read XOR Set).
+    
+    Args:
+        df_lookup (pd.DataFrame): Lookup table with Select, Read, and Set columns
+        process_label (str): Process name for error messages
+        
+    Returns:
+        dict: Mapping from parameter index to class index (1=Read, 2=Set)
+        
+    Raises:
+        ValueError: If any parameter is in both categories or neither category
+    """
+    # Normalize column names: lowercase and strip whitespace (handles "Read ", "READ", etc.)
+    df_lookup = df_lookup.rename(columns=lambda c: c.lower().strip())
+    
+    selected = df_lookup[df_lookup["select"]]
+    
+    # Handle potential NaN values - treat as not having an 'x'
+    read_marked = selected["read"].fillna("").str.lower().str.strip() == "x"
+    set_marked = selected["set"].fillna("").str.lower().str.strip() == "x"
+    
+    # Check for parameters in both categories
+    both_mask = read_marked & set_marked
+    if both_mask.any():
+        raise ValueError(
+            f"Process '{process_label}': Parameters marked in BOTH Read and Set categories: "
+            f"{selected.loc[both_mask, 'index'].tolist()}"
+        )
+    
+    # Check for parameters in neither category  
+    neither_mask = ~read_marked & ~set_marked
+    if neither_mask.any():
+        raise ValueError(
+            f"Process '{process_label}': Parameters not marked in either Read or Set category: "
+            f"{selected.loc[neither_mask, 'index'].tolist()}"
+        )
+    
+    # Create mapping: parameter -> class_index (1=Read, 2=Set)
+    param_to_class = {}
+    for idx, row in selected.iterrows():
+        param_name = row["index"]
+        if read_marked.loc[idx]:
+            param_to_class[param_name] = 1  # Read
+        else:
+            param_to_class[param_name] = 2  # Set
+    
+    return param_to_class
 
 
 def assemble_raw(
     dataset_id: str, 
     grouping_method:Literal["panel", "column"]="panel", 
     grouping_column: str=None, 
+    selected_processes: List[str]=None,
     debug: bool=False
     )->None:
     
@@ -32,6 +84,8 @@ def assemble_raw(
         dataset_id (str): working dataset folder
         grouping_method (Literal["panel", "column"]): method for grouping samples
         grouping_column (str, optional): column name if using column grouping
+        selected_processes (List[str], optional): list of process labels to load 
+            (e.g., ["Laser", "Plasma"]). If None, all processes are loaded.
         debug (bool): if True, process only first 100 samples
     """
     
@@ -45,7 +99,13 @@ def assemble_raw(
     
     # Load processes with specified grouping method
     try:
-        _, processes = get_processes(INPUT_DIR, filepath_selected, grouping_method, grouping_column)
+        _, processes = get_processes(
+            INPUT_DIR, 
+            filepath_selected, 
+            grouping_method, 
+            grouping_column,
+            selected_process_labels=selected_processes
+        )
     except FileNotFoundError as e:
         raise FileNotFoundError(
             f"Could not load process files. Check that input directory exists: {INPUT_DIR}\n"
@@ -100,6 +160,9 @@ def assemble_raw(
 
         assert len(parameters) == len(variables)
         params_vars = {parameters[i]: variables[i] for i in range(len(parameters))}
+        
+        # Validate and extract class information (Read/Set)
+        params_class = validate_class_columns(df_lookup, pro.process_label)
 
         df_cp = pro.df
         
@@ -142,9 +205,10 @@ def assemble_raw(
             var_name=trans_parameter_label,
             value_name=trans_value_label)
         
-        # Add variable and process labels
+        # Add variable, process, and class labels
         df_cp[trans_variable_label] = df_cp[trans_parameter_label].map(params_vars)
         df_cp[trans_process_label] = pro.process_label
+        df_cp[trans_class_label] = df_cp[trans_parameter_label].map(params_class)
         
         # Standardize column names
         df_cp = df_cp.rename(columns={pro.PaPos_label: trans_position_label})
@@ -192,6 +256,11 @@ def assemble_raw(
     df_raw.to_csv(join(OUTPUT_DIR, trans_df_process_raw))
     with open(join(OUTPUT_DIR, trans_missing_batches), "w") as f:
         json.dump(missing_groups_dic, f, indent=4)
+    
+    # Save class vocabulary dictionary (1=Read, 2=Set)
+    class_dict = {1: class_read_label, 2: class_set_label}
+    with open(join(OUTPUT_DIR, class_dict_filename), "w") as f:
+        json.dump(class_dict, f, indent=4)
 
 
 

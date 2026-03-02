@@ -103,8 +103,22 @@ def generate_lookup(filename_look):
         for process in processes:
             get_df_lookup(process).to_excel(writer, sheet_name=process.process_label)
 
-def get_processes(input_data_path,filename_sel, grouping_method: str, grouping_column:str, processes:List[Process]=processes):
+def get_processes(input_data_path,filename_sel, grouping_method: str, grouping_column:str, processes:List[Process]=processes, selected_process_labels: List[str]=None):
+    """
+    Load and initialize process objects from data files.
     
+    Args:
+        input_data_path: Path to input data folder
+        filename_sel: Path to lookup_selected.xlsx file
+        grouping_method: Grouping method ("panel" or "column")
+        grouping_column: Column name for grouping (if method is "column")
+        processes: List of Process objects to use (default: all defined processes)
+        selected_process_labels: Optional list of process labels to filter (e.g., ["Laser", "Plasma"]).
+                                 If None, all processes are loaded.
+    
+    Returns:
+        Tuple of (process_labels list, processes list)
+    """
     process_map = None
     try:
         process_map = OmegaConf.load(join(input_data_path,"process_map.yaml"))
@@ -132,8 +146,21 @@ def get_processes(input_data_path,filename_sel, grouping_method: str, grouping_c
                     header          = process_map[key]["header"]
                 )
             )
-            
     
+    # Filter processes if specific labels are requested
+    if selected_process_labels is not None:
+        available_labels = [p.process_label for p in processes]
+        processes = [p for p in processes if p.process_label in selected_process_labels]
+        if len(processes) == 0:
+            raise ValueError(
+                f"No matching processes found for labels: {selected_process_labels}. "
+                f"Available process labels: {available_labels}"
+            )
+        # Warn about any requested labels that weren't found
+        not_found = [label for label in selected_process_labels if label not in available_labels]
+        if not_found:
+            print(f"Warning: Requested process labels not found and skipped: {not_found}")
+            
     
     for process in processes:
         process.get_df(input_data_path)

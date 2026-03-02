@@ -104,7 +104,13 @@ trans_version_label = "version"
 trans_design_version_label = "design_version"
 trans_occurrence_label = "occurrence"
 trans_step_label = "step"
+trans_class_label = "class"
 time_components_labels = ["year", "month", "day", "hour", "minute"]
+
+# CLASS LABELS (Parameter type classification: Read vs Set)
+class_read_label = "Read"
+class_set_label = "Set"
+class_dict_filename = "class_vocabulary.json"
 
 
 # =============================================================================

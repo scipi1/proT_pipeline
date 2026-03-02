@@ -48,7 +48,8 @@ def process_raw(dataset_id: str, missing_threshold: float = None)->None:
         return df
     
     # Aggregate multiple measurements by taking mean
-    grouping_cols = [trans_design_version_label, trans_group_id, trans_position_label, trans_process_label, trans_variable_label]
+    # Note: trans_class_label is included in grouping to preserve class information
+    grouping_cols = [trans_design_version_label, trans_group_id, trans_position_label, trans_process_label, trans_variable_label, trans_class_label]
     df_processed = df_raw.groupby(grouping_cols).agg({
         trans_value_label: "mean",
         trans_date_label: "first",

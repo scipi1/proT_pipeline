@@ -33,7 +33,7 @@ from proT_pipeline.labels import (
     get_root_dir, get_dirs,
     trans_group_id, trans_process_label, trans_occurrence_label,
     trans_step_label, trans_variable_label, trans_value_norm_label,
-    trans_position_label, trans_value_label,
+    trans_position_label, trans_value_label, trans_class_label,
     trans_df_input, target_filename, target_sep
 )
 from proT_pipeline.utils import safe_read_csv
@@ -260,13 +260,18 @@ def extract_unique_params(
     else:
         raise ValueError(f"Unknown aggregation method: {aggregation}")
     
-    df_agg = df.groupby([group_id_label, 'param_name']).agg({
+    # Build aggregation dict - include class if available
+    agg_dict = {
         value_label: agg_func,
         process_label: 'first',
         occurrence_label: 'first',
         step_label: 'first',
         variable_label: 'first'
-    }).reset_index()
+    }
+    if trans_class_label in df.columns:
+        agg_dict[trans_class_label] = 'first'
+    
+    df_agg = df.groupby([group_id_label, 'param_name']).agg(agg_dict).reset_index()
     
     # Pivot to wide format
     X_params = df_agg.pivot(
@@ -281,13 +286,17 @@ def extract_unique_params(
     param_info_list = []
     for param in X_params.columns:
         param_row = df_agg[df_agg['param_name'] == param].iloc[0]
-        param_info_list.append({
+        info_dict = {
             'param_name': param,
             'process': param_row[process_label],
             'occurrence': param_row[occurrence_label],
             'step': param_row[step_label],
             'variable': param_row[variable_label]
-        })
+        }
+        # Include class if available (for descriptive purposes, not uniqueness)
+        if trans_class_label in df_agg.columns:
+            info_dict['class'] = param_row[trans_class_label]
+        param_info_list.append(info_dict)
     
     param_info = pd.DataFrame(param_info_list)
     
@@ -562,7 +571,7 @@ def compute_hsic_for_all_params(
         # Get parameter info
         info_row = param_info[param_info['param_name'] == param_name].iloc[0]
         
-        results.append({
+        result_dict = {
             'param_name': param_name,
             'process': info_row['process'],
             'occurrence': info_row['occurrence'],
@@ -570,7 +579,12 @@ def compute_hsic_for_all_params(
             'variable': info_row['variable'],
             'hsic_score': hsic_score,
             'valid_samples': valid_samples
-        })
+        }
+        # Include class if available (for descriptive purposes)
+        if 'class' in info_row.index:
+            result_dict['class'] = info_row['class']
+        
+        results.append(result_dict)
     
     result_df = pd.DataFrame(results)
     
@@ -603,6 +617,12 @@ def run_hsic_analysis(
     3. Extracts unique X_params from input data
     4. Computes HSIC for each X_param vs Y_slope (separately for each sense)
     5. Saves results as CSV files
+    
+    Caching Behavior
+    ----------------
+    The function checks if output files already exist in the output directory.
+    If they exist, they are loaded from disk instead of being recomputed.
+    To force recomputation, simply delete the corresponding output files.
     
     Parameters
     ----------
@@ -659,19 +679,73 @@ def run_hsic_analysis(
         makedirs(output_dir)
         logger.info(f"Created output directory: {output_dir}")
     
-    # =========================================================================
-    # LOAD DATA
-    # =========================================================================
-    logger.info("Loading data...")
+    # Define file paths
+    slopes_path = join(output_dir, "slopes_summary.csv")
+    param_info_path = join(output_dir, "param_info.csv")
     
-    # Load target data
-    df_trg_path = join(CONTROL_DIR, target_filename)
-    if not exists(df_trg_path):
-        raise FileNotFoundError(f"Target file not found: {df_trg_path}")
-    df_trg = safe_read_csv(df_trg_path, sep=target_sep)
-    logger.info(f"Loaded df_trg: {df_trg.shape}")
+    # =========================================================================
+    # CHECK FOR CACHED SLOPES AND PARAM_INFO
+    # =========================================================================
+    if exists(slopes_path) and exists(param_info_path):
+        logger.info("Found cached slopes_summary.csv and param_info.csv, loading from disk...")
+        slopes_wide = pd.read_csv(slopes_path)
+        param_info = pd.read_csv(param_info_path)
+        logger.info(f"Loaded slopes_wide: {slopes_wide.shape}")
+        logger.info(f"Loaded param_info: {param_info.shape}")
+    else:
+        # =================================================================
+        # LOAD DATA
+        # =================================================================
+        logger.info("Loading data...")
+        
+        # Load target data
+        df_trg_path = join(CONTROL_DIR, target_filename)
+        if not exists(df_trg_path):
+            raise FileNotFoundError(f"Target file not found: {df_trg_path}")
+        df_trg = safe_read_csv(df_trg_path, sep=target_sep)
+        logger.info(f"Loaded df_trg: {df_trg.shape}")
+        
+        # Load input data
+        df_input_path = join(OUTPUT_DIR_DEFAULT, trans_df_input)
+        if not exists(df_input_path):
+            raise FileNotFoundError(
+                f"Processed input file not found: {df_input_path}\n"
+                f"Run the main pipeline first to create this file."
+            )
+        df_input = pd.read_parquet(df_input_path)
+        logger.info(f"Loaded df_input: {df_input.shape}")
+        
+        # =================================================================
+        # COMPUTE SLOPES
+        # =================================================================
+        logger.info("Computing slopes from target time-series...")
+        slopes_df = compute_slopes(df_trg)
+        slopes_wide = pivot_slopes(slopes_df)
+        
+        logger.info(f"Slopes computed for {len(slopes_wide)} samples")
+        logger.info(f"Slope columns: {[c for c in slopes_wide.columns if 'slope' in c]}")
+        
+        # Save slopes
+        slopes_wide.to_csv(slopes_path, index=False)
+        logger.info("Saved slopes_summary.csv")
+        
+        # =================================================================
+        # EXTRACT UNIQUE PARAMETERS
+        # =================================================================
+        logger.info("Extracting unique input parameters...")
+        X_params, param_info = extract_unique_params(df_input, aggregation=aggregation)
+        
+        # Save parameter info
+        param_info.to_csv(param_info_path, index=False)
+        logger.info(f"Saved param_info.csv ({len(param_info)} parameters)")
     
-    # Load input data
+    # =========================================================================
+    # PREPARE FOR HSIC COMPUTATION (need X_params if not loaded)
+    # =========================================================================
+    # Check if we need to load input data for HSIC computation
+    # We need X_params for HSIC, so we need to extract it if not already done
+    
+    # Load input data if needed for HSIC computation
     df_input_path = join(OUTPUT_DIR_DEFAULT, trans_df_input)
     if not exists(df_input_path):
         raise FileNotFoundError(
@@ -679,31 +753,7 @@ def run_hsic_analysis(
             f"Run the main pipeline first to create this file."
         )
     df_input = pd.read_parquet(df_input_path)
-    logger.info(f"Loaded df_input: {df_input.shape}")
-    
-    # =========================================================================
-    # COMPUTE SLOPES
-    # =========================================================================
-    logger.info("Computing slopes from target time-series...")
-    slopes_df = compute_slopes(df_trg)
-    slopes_wide = pivot_slopes(slopes_df)
-    
-    logger.info(f"Slopes computed for {len(slopes_wide)} samples")
-    logger.info(f"Slope columns: {[c for c in slopes_wide.columns if 'slope' in c]}")
-    
-    # Save slopes
-    slopes_wide.to_csv(join(output_dir, "slopes_summary.csv"), index=False)
-    logger.info("Saved slopes_summary.csv")
-    
-    # =========================================================================
-    # EXTRACT UNIQUE PARAMETERS
-    # =========================================================================
-    logger.info("Extracting unique input parameters...")
-    X_params, param_info = extract_unique_params(df_input, aggregation=aggregation)
-    
-    # Save parameter info
-    param_info.to_csv(join(output_dir, "param_info.csv"), index=False)
-    logger.info(f"Saved param_info.csv ({len(param_info)} parameters)")
+    X_params, _ = extract_unique_params(df_input, aggregation=aggregation)
     
     # =========================================================================
     # FIND COMMON SAMPLES
@@ -733,41 +783,55 @@ def run_hsic_analysis(
     
     for slope_col in slope_cols:
         sense_id = slope_col.replace('slope_', '')
-        logger.info(f"\n{'='*50}")
-        logger.info(f"Computing HSIC for Sense {sense_id}...")
-        logger.info(f"{'='*50}")
         
-        Y_slope = slopes_common[slope_col].values
+        # Define file paths for this sense
+        hsic_results_path = join(output_dir, f"hsic_results_{sense_id}.csv")
+        baseline_path = join(output_dir, f"hsic_baseline_{sense_id}.csv")
         
-        hsic_results = compute_hsic_for_all_params(
-            X_params_common,
-            Y_slope,
-            param_info
-        )
+        # Check if HSIC results already exist
+        if exists(hsic_results_path):
+            logger.info(f"Found cached hsic_results_{sense_id}.csv, loading from disk...")
+            hsic_results = pd.read_csv(hsic_results_path)
+            results[f'hsic_{sense_id}'] = hsic_results
+        else:
+            logger.info(f"\n{'='*50}")
+            logger.info(f"Computing HSIC for Sense {sense_id}...")
+            logger.info(f"{'='*50}")
+            
+            Y_slope = slopes_common[slope_col].values
+            
+            hsic_results = compute_hsic_for_all_params(
+                X_params_common,
+                Y_slope,
+                param_info
+            )
+            
+            # Save results
+            hsic_results.to_csv(hsic_results_path, index=False)
+            logger.info(f"Saved hsic_results_{sense_id}.csv")
+            
+            results[f'hsic_{sense_id}'] = hsic_results
         
-        # Save results
-        output_filename = f"hsic_results_{sense_id}.csv"
-        hsic_results.to_csv(join(output_dir, output_filename), index=False)
-        logger.info(f"Saved {output_filename}")
-        
-        results[f'hsic_{sense_id}'] = hsic_results
-        
-        # =====================================================================
-        # COMPUTE BASELINE HSIC
-        # =====================================================================
-        logger.info(f"\nComputing baseline HSIC for Sense {sense_id}...")
-        baseline_results = compute_baseline_hsic(
-            Y_slope=Y_slope,
-            n_samples=len(Y_slope),
-            seed=42
-        )
-        
-        # Save baseline results
-        baseline_filename = f"hsic_baseline_{sense_id}.csv"
-        baseline_results.to_csv(join(output_dir, baseline_filename), index=False)
-        logger.info(f"Saved {baseline_filename}")
-        
-        results[f'baseline_{sense_id}'] = baseline_results
+        # Check if baseline results already exist
+        if exists(baseline_path):
+            logger.info(f"Found cached hsic_baseline_{sense_id}.csv, loading from disk...")
+            baseline_results = pd.read_csv(baseline_path)
+            results[f'baseline_{sense_id}'] = baseline_results
+        else:
+            logger.info(f"\nComputing baseline HSIC for Sense {sense_id}...")
+            Y_slope = slopes_common[slope_col].values
+            
+            baseline_results = compute_baseline_hsic(
+                Y_slope=Y_slope,
+                n_samples=len(Y_slope),
+                seed=42
+            )
+            
+            # Save baseline results
+            baseline_results.to_csv(baseline_path, index=False)
+            logger.info(f"Saved hsic_baseline_{sense_id}.csv")
+            
+            results[f'baseline_{sense_id}'] = baseline_results
     
     # =========================================================================
     # SUMMARY

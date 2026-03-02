@@ -361,8 +361,7 @@ class Process():
             self.df = pd.read_excel(join(input_data_path,self.filename),header=self.header)
             self.flag = 1
         else:
-            raise ValueError(f"Unsupported file extension: {ext}")
-        
+            raise ValueError(f"Unsupported file extension: {ext}")        
         
     def normalize_df(self,filename_sel):
         if self.flag == 0:

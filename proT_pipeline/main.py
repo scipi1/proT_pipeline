@@ -27,6 +27,8 @@ def main(
     split_seed: int = 42,
     grouping_method: str = 'panel', 
     grouping_column: str = None,
+    selected_processes: list = None,
+    split_input_by_class: bool = False,
     debug: bool = False):
     """
     Dyconex dataset assembly according to the control files
@@ -50,6 +52,11 @@ def main(
         split_seed (int): random seed for reproducibility (default: 42)
         grouping_method (str): grouping method ('panel' or 'column')
         grouping_column (str): if method is 'column', specify which column
+        selected_processes (list, optional): list of process labels to load 
+            (e.g., ["Laser", "Plasma"]). If None, all processes are loaded.
+        split_input_by_class (bool): if True, split input data into S (Set params, class=2)
+            and X (Read params, class=1), producing three tensors (S, X, Y) compatible
+            with CausaliT format. Default False maintains backward compatibility.
         debug (bool, optional): if True assembles a slice of target. Defaults to False.
     
     Notes:
@@ -83,6 +90,7 @@ def main(
         dataset_id=dataset_id, 
         grouping_method=grouping_method, 
         grouping_column=grouping_column,
+        selected_processes=selected_processes,
         debug=debug)
     logging.info("Raw dataframe assembly complete")
 
@@ -91,7 +99,7 @@ def main(
     logging.info("Raw dataframe processing complete")
 
     logging.info("Generating dataset...")
-    generate_dataset(dataset_id=dataset_id)
+    generate_dataset(dataset_id=dataset_id, split_input_by_class=split_input_by_class)
     logging.info("Dataset generation complete")
     
     
@@ -116,7 +124,7 @@ def main(
 
 if __name__ == "__main__":
     main(
-        dataset_id = "dyconex_251117",
+        dataset_id = "dyconex_test_params_class",
         missing_threshold=30,
         use_stratified_split = True,
         debug=False)
