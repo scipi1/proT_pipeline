@@ -28,8 +28,9 @@ def stratified_split_by_metric(
     n_bins: int = 50,
     leave_residuals: Optional[Literal["train", "test"]] = "train",
     shuffle: bool = False,
-    seed: Optional[int] = None
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    seed: Optional[int] = None,
+    S: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, ...]:
     """
     Perform stratified train-test split based on a metric column.
     
@@ -66,17 +67,18 @@ def stratified_split_by_metric(
         (default: False)
     seed : Optional[int], optional
         Random seed for reproducibility when shuffle=True (default: None)
+    S : np.ndarray, optional
+        Source array of shape (N, L, D_s) where N is number of samples.
+        Used when split_input_by_class=True (CausaliT format with S, X, Y).
+        If provided, returns (S_train, S_test, X_train, X_test, Y_train, Y_test).
+        (default: None)
     
     Returns
     -------
-    X_train : np.ndarray
-        Training input array
-    X_test : np.ndarray
-        Test input array
-    Y_train : np.ndarray
-        Training target array
-    Y_test : np.ndarray
-        Test target array
+    If S is None:
+        X_train, X_test, Y_train, Y_test : np.ndarray
+    If S is provided:
+        S_train, S_test, X_train, X_test, Y_train, Y_test : np.ndarray
     
     Raises
     ------
@@ -94,6 +96,14 @@ def stratified_split_by_metric(
     ...     group_id_column='group',
     ...     train_ratio=0.8,
     ...     n_bins=50,
+    ...     seed=42
+    ... )
+    >>> # With S array (CausaliT format)
+    >>> S_train, S_test, X_train, X_test, Y_train, Y_test = stratified_split_by_metric(
+    ...     X, Y, metrics_df,
+    ...     metric_column='rarity_last_value',
+    ...     group_id_column='group',
+    ...     S=S,
     ...     seed=42
     ... )
     
@@ -225,6 +235,11 @@ def stratified_split_by_metric(
     Y_train = Y[train_indices]
     Y_test = Y[test_indices]
     
+    # Split S array if provided
+    if S is not None:
+        S_train = S[train_indices]
+        S_test = S[test_indices]
+    
     # Print split statistics
     logger.info(f"Stratified Split Statistics (metric: {metric_column}):")
     logger.info(f"  Total samples: {n_samples}")
@@ -232,6 +247,8 @@ def stratified_split_by_metric(
     logger.info(f"  Test samples: {len(test_indices)} ({len(test_indices)/n_samples*100:.1f}%)")
     logger.info(f"  Number of metric bins used: {metrics_copy['metric_bin'].nunique()}")
     logger.info(f"  Shuffled within bins: {shuffle}")
+    if S is not None:
+        logger.info(f"  S array included: Yes")
     
     # Check balance across metric bins
     train_metric_values = metrics_copy[metrics_copy[group_id_column].isin(train_group_ids)][metric_column]
@@ -241,7 +258,11 @@ def stratified_split_by_metric(
     logger.info(f"    Train {metric_column} range: [{train_metric_values.min():.3f}, {train_metric_values.max():.3f}]")
     logger.info(f"    Test {metric_column} range: [{test_metric_values.min():.3f}, {test_metric_values.max():.3f}]")
     
-    return X_train, X_test, Y_train, Y_test
+    # Return with S if provided
+    if S is not None:
+        return S_train, S_test, X_train, X_test, Y_train, Y_test
+    else:
+        return X_train, X_test, Y_train, Y_test
 
 
 def stratified_split_from_file(
@@ -254,8 +275,9 @@ def stratified_split_from_file(
     n_bins: int = 50,
     leave_residuals: Optional[Literal["train", "test"]] = "train",
     shuffle: bool = False,
-    seed: Optional[int] = None
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    seed: Optional[int] = None,
+    S: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, ...]:
     """
     Perform stratified split by reading metrics from a saved parquet file.
     
@@ -284,11 +306,17 @@ def stratified_split_from_file(
         Whether to shuffle within bins (default: False)
     seed : Optional[int], optional
         Random seed (default: None)
+    S : np.ndarray, optional
+        Source array of shape (N, L, D_s). Used when split_input_by_class=True.
+        If provided, returns (S_train, S_test, X_train, X_test, Y_train, Y_test).
+        (default: None)
     
     Returns
     -------
-    X_train, X_test, Y_train, Y_test : np.ndarray
-        Split arrays
+    If S is None:
+        X_train, X_test, Y_train, Y_test : np.ndarray
+    If S is provided:
+        S_train, S_test, X_train, X_test, Y_train, Y_test : np.ndarray
     
     Raises
     ------
@@ -303,6 +331,14 @@ def stratified_split_from_file(
     ...     metric_column='rarity_last_value',
     ...     train_ratio=0.8,
     ...     n_bins=50,
+    ...     seed=42
+    ... )
+    >>> # With S array (CausaliT format)
+    >>> S_train, S_test, X_train, X_test, Y_train, Y_test = stratified_split_from_file(
+    ...     X, Y,
+    ...     metrics_file_path='sample_metrics.parquet',
+    ...     metric_column='rarity_last_value',
+    ...     S=S,
     ...     seed=42
     ... )
     """
@@ -330,5 +366,6 @@ def stratified_split_from_file(
         n_bins=n_bins,
         leave_residuals=leave_residuals,
         shuffle=shuffle,
-        seed=seed
+        seed=seed,
+        S=S
     )

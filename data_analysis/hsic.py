@@ -239,10 +239,16 @@ def extract_unique_params(
     
     # Create unique parameter identifier
     df = df_input.copy()
+    # Use integer conversion for occurrence and step so that param_name matches
+    # the format produced by _make_col_label() in generate_tabular_dataset.py
+    # and by the _param_name construction in filter_by_hsic.py.
+    def _int_str(x):
+        return str(int(x)) if pd.notna(x) else "NA"
+
     df['param_name'] = (
         df[process_label].astype(str) + '_' +
-        df[occurrence_label].astype(str) + '_' +
-        df[step_label].astype(str) + '_' +
+        df[occurrence_label].apply(_int_str) + '_' +
+        df[step_label].apply(_int_str) + '_' +
         df[variable_label].astype(str)
     )
     

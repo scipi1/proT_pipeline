@@ -3,7 +3,7 @@ import numpy as np
 from os.path import join
 import json
 from proT_pipeline.labels import *
-from proT_pipeline.core.modules import explode_time_components, filter_vars_max_missing
+from proT_pipeline.core.modules import explode_time_components
 from proT_pipeline.utils import safe_read_csv
 
 
@@ -11,17 +11,34 @@ from proT_pipeline.utils import safe_read_csv
 def process_raw(dataset_id: str, missing_threshold: float = None)->None:
     """
     Process raw process data. Operations are:
-    - Normalization
     - Take the mean of multiple measurements
     - Add temporal order column
     - Explode time components
-    - Filters missing values to a max % per variable defined by `threshold`
     - Assigns occurrence and steps
+
+    Normalization and column-level missing-value filtering are intentionally
+    NOT performed here.  They are handled downstream:
+    - Column filtering: ``filter_sparse_columns()`` (shared by both modes)
+    - Normalization: inside ``generate_dataset()`` (sequential) or
+      ``generate_tabular_dataset()`` (tabular), AFTER all filtering is done,
+      so that the normalization statistics reflect the final clean population.
+
+    The ``missing_threshold`` parameter is retained for backward compatibility
+    but is no longer used (a deprecation warning is logged if it is passed).
 
     Args:
         dataset_id (str): working directory
-        missing_threshold (float): threshold for max % of missing values per variable
+        missing_threshold (float): DEPRECATED — use filter_sparse_columns() instead
     """
+    import warnings
+    if missing_threshold is not None:
+        warnings.warn(
+            "process_raw: the 'missing_threshold' parameter is deprecated and has no effect. "
+            "Use filter_sparse_columns(dataset_id, col_missing_threshold=...) after process_raw() "
+            "to filter sparse columns.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     
     # ============================================================================
     # SETUP
@@ -39,14 +56,12 @@ def process_raw(dataset_id: str, missing_threshold: float = None)->None:
         )
 
     # ============================================================================
-    # NORMALIZE AND AGGREGATE
+    # AGGREGATE
+    # Normalization is NOT done here — it is deferred to the mode-specific
+    # downstream steps (generate_dataset / generate_tabular_dataset) so that
+    # normalization statistics are computed on the final clean population.
     # ============================================================================
-    def max_normalizer(df: pd.DataFrame, var_label, val_label):
-        """Normalize values by dividing by max value per variable."""
-        max_map = df.groupby(var_label)[val_label].max()
-        df[trans_value_norm_label] = df[val_label] / df[var_label].map(max_map) 
-        return df
-    
+
     # Aggregate multiple measurements by taking mean
     # Note: trans_class_label is included in grouping to preserve class information
     grouping_cols = [trans_design_version_label, trans_group_id, trans_position_label, trans_process_label, trans_variable_label, trans_class_label]
@@ -55,10 +70,7 @@ def process_raw(dataset_id: str, missing_threshold: float = None)->None:
         trans_date_label: "first",
         trans_parameter_label: "first"
         }).reset_index()
-    
-    # Apply normalization
-    df_processed = max_normalizer(df_processed, var_label=trans_variable_label, val_label=trans_value_label)
-    
+
     # Add temporal ordering based on timestamps
     df_processed[trans_order_label] = (
         df_processed.groupby(trans_group_id)[trans_date_label].rank(
@@ -71,11 +83,7 @@ def process_raw(dataset_id: str, missing_threshold: float = None)->None:
 
     # Extract time components from timestamps
     df_processed, _ = explode_time_components(df_processed, trans_date_label)
-    
-    # Filter variables with excessive missing data
-    if missing_threshold is not None:
-        df_processed = filter_vars_max_missing(df_processed, missing_threshold)
-    
+
     # ============================================================================
     # ASSIGN OCCURRENCE
     # ============================================================================

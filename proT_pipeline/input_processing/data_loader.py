@@ -200,7 +200,7 @@ def get_group_id(process:Process, grouping_method: str, grouping_column: str):
     
     assert grouping_method in ["panel", "column"]
     
-    df_ = process.df
+    df_ = process.df.copy()   # copy to avoid PerformanceWarning from fragmented frame
     
     if grouping_method == "panel":
         if process.panel_label is not None:

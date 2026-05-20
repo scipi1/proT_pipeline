@@ -16,10 +16,12 @@ from proT_pipeline.target_processing.placeholders import (
     generate_ist_placeholders,
     load_group_ids_from_process_data
 )
+from proT_pipeline.target_processing.compute_ist_slopes import compute_ist_slopes
 
 __all__ = [
-    'main', 
-    'modules', 
+    'main',
+    'modules',
     'generate_ist_placeholders',
-    'load_group_ids_from_process_data'
+    'load_group_ids_from_process_data',
+    'compute_ist_slopes',
 ]

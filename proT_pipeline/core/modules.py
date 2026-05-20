@@ -373,13 +373,12 @@ class Process():
         for p in self.parameters:
             if p not in self.df.columns:
                 warning_str = f"{self.process_label} WARNING: {p} not in the columns"
-                print(warning_str)
                 logging.info(warning_str)
                 self.missing_columns.append(p)
             try:
                 self.df[p] = (self.df[p]-self.df[p].min())/(self.df[p].max()-self.df[p].min()+1E-6)
             except Exception as e:
-                print(f"Error occurred {e}")
+                logging.warning(f"Error occurred {e}")
             
     def convert_timestamp(self):
         if self.flag == 0:

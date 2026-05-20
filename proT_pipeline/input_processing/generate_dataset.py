@@ -70,6 +70,45 @@ def generate_dataset(dataset_id, split_input_by_class: bool = False):
         )
     
     # ============================================================================
+    # NORMALIZE INPUT DATA (min-max per variable, on the final clean population)
+    #
+    # Normalization is intentionally deferred to here (after filter_sparse_columns
+    # and filter_by_hsic in the sequential pipeline) so that the normalization
+    # statistics reflect the actual surviving parameter set and its data distribution.
+    #
+    # The denormalization map is saved as denorm_map.json for reproducible
+    # inverse-transform at inference time.
+    # ============================================================================
+    logging.info("Normalizing input data (min-max per variable)...")
+
+    # Compute per-variable min and max
+    _norm_stats = (
+        df_input.groupby(trans_variable_label)[trans_value_label]
+        .agg(["min", "max"])
+    )
+
+    # Build denorm map: {variable_name: {min: float, max: float}}
+    denorm_map = {
+        str(var): {"min": float(row["min"]), "max": float(row["max"])}
+        for var, row in _norm_stats.iterrows()
+    }
+
+    # Vectorized min-max normalization per variable
+    _v_min = df_input[trans_variable_label].map(_norm_stats["min"])
+    _v_max = df_input[trans_variable_label].map(_norm_stats["max"])
+    _v_range = (_v_max - _v_min).clip(lower=1e-12)  # avoid division by zero
+    df_input = df_input.copy()
+    df_input[trans_value_norm_label] = (df_input[trans_value_label] - _v_min) / _v_range
+
+    denorm_map_path = join(OUTPUT_DIR, "denorm_map.json")
+    with open(denorm_map_path, "w", encoding="utf-8") as _f:
+        json.dump(denorm_map, _f, indent=2)
+    logging.info(
+        f"Normalization complete: {len(denorm_map)} variables normalized. "
+        f"Saved denorm_map.json"
+    )
+
+    # ============================================================================
     # CREATE VOCABULARY MAPPINGS
     # ============================================================================
     # Maps convert categorical features to integers, saved as JSON dictionaries.

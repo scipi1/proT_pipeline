@@ -43,7 +43,15 @@ def split_by_metric(
     Notes
     -----
     Requires sample_metrics.parquet to exist in the output directory.
-    Saves: X_train.npy, X_test.npy, Y_train.npy, Y_test.npy
+    Saves: train_data.npz, test_data.npz
+    
+    When S array exists (split_input_by_class=True was used):
+    - train_data.npz contains s, x, y arrays
+    - test_data.npz contains s, x, y arrays
+    
+    Otherwise (backward compatible):
+    - train_data.npz contains x, y arrays
+    - test_data.npz contains x, y arrays
     """
     
     # Define directories
@@ -58,26 +66,49 @@ def split_by_metric(
     X = data['x']
     Y = data['y']
     
+    # Check if S array exists (split_input_by_class=True was used)
+    has_S = 's' in data.files
+    S = data['s'] if has_S else None
+    
     # Metrics file path
     metrics_file = join(OUTPUT_DIR, "sample_metrics.parquet")
     
     # Perform stratified split
-    X_train, X_test, Y_train, Y_test = stratified_split_from_file(
-        X, Y,
-        metrics_file_path=metrics_file,
-        metric_column=metric_column,
-        group_id_column=trans_group_id,
-        train_ratio=train_ratio,
-        n_bins=n_bins,
-        shuffle=shuffle,
-        seed=seed
-    )
-    
-    # Save split datasets as compressed numpy archives (npz format)
-    np.savez(join(dataset_dir, train_data_label), x=X_train, y=Y_train)
-    np.savez(join(dataset_dir, test_data_label), x=X_test, y=Y_test)
-    print(f"Saved train dataset to {train_data_label} (X: {X_train.shape}, Y: {Y_train.shape})")
-    print(f"Saved test dataset to {test_data_label} (X: {X_test.shape}, Y: {Y_test.shape})")
+    if has_S:
+        S_train, S_test, X_train, X_test, Y_train, Y_test = stratified_split_from_file(
+            X, Y,
+            metrics_file_path=metrics_file,
+            metric_column=metric_column,
+            group_id_column=trans_group_id,
+            train_ratio=train_ratio,
+            n_bins=n_bins,
+            shuffle=shuffle,
+            seed=seed,
+            S=S
+        )
+        
+        # Save split datasets with S array
+        np.savez(join(dataset_dir, train_data_label), s=S_train, x=X_train, y=Y_train)
+        np.savez(join(dataset_dir, test_data_label), s=S_test, x=X_test, y=Y_test)
+        print(f"Saved train dataset to {train_data_label} (S: {S_train.shape}, X: {X_train.shape}, Y: {Y_train.shape})")
+        print(f"Saved test dataset to {test_data_label} (S: {S_test.shape}, X: {X_test.shape}, Y: {Y_test.shape})")
+    else:
+        X_train, X_test, Y_train, Y_test = stratified_split_from_file(
+            X, Y,
+            metrics_file_path=metrics_file,
+            metric_column=metric_column,
+            group_id_column=trans_group_id,
+            train_ratio=train_ratio,
+            n_bins=n_bins,
+            shuffle=shuffle,
+            seed=seed
+        )
+        
+        # Save split datasets as compressed numpy archives (npz format)
+        np.savez(join(dataset_dir, train_data_label), x=X_train, y=Y_train)
+        np.savez(join(dataset_dir, test_data_label), x=X_test, y=Y_test)
+        print(f"Saved train dataset to {train_data_label} (X: {X_train.shape}, Y: {Y_train.shape})")
+        print(f"Saved test dataset to {test_data_label} (X: {X_test.shape}, Y: {Y_test.shape})")
 
 
 if __name__ == "__main__":
